@@ -1,0 +1,56 @@
+{
+  "name": "jsonld-recursive",
+  "version": "1.0.0",
+  "description": "Recursively expand and compact JSON-LD documents with caching and chained URL mappings",
+  "main": "lib/ldr-core.js",
+  "browser": "lib/ldr-browser.js",
+  "bin": {
+    "ldr": "./ldr",
+    "ldr-server": "./ldr-server.js"
+  },
+  "scripts": {
+    "start": "node ldr-server.js",
+    "stop": "pkill ldr-server",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "files": [
+    "lib/",
+    "docs/",
+    "ldr",
+    "ldr-server.js",
+    "example.html",
+    "mappings.example.json",
+    "README.md"
+  ],
+  "keywords": [
+    "jsonld",
+    "json-ld",
+    "linked-data",
+    "semantic-web",
+    "expand",
+    "compact",
+    "recursive",
+    "rdf",
+    "cache",
+    "url-mapping",
+    "chained-mappings",
+    "wcrp",
+    "cmip"
+  ],
+  "author": "Daniel Ellis <wolfiex@users.noreply.github.com>",
+  "license": "MIT",
+  "dependencies": {
+    "jsonld": "^8.3.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/jsonld-recursive.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/jsonld-recursive/issues"
+  },
+  "homepage": "https://github.com/yourusername/jsonld-recursive#readme"
+}
