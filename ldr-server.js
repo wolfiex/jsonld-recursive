@@ -20,9 +20,6 @@ const { expandRecursive, compactJsonLd } = require('./lib/ldr-core');
 const cache = new Map();
 let urlMappings = {};
 
-// Track document base paths for resolving relative contexts
-const documentBasePaths = new Map();
-
 // Apply URL mappings with wildcard support and chaining
 function applyMappings(url, maxDepth = 10) {
   let currentUrl = url;
@@ -76,6 +73,7 @@ function applySingleMapping(url) {
   return url;
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 // Custom document loader - treats local files as file:// URLs
@@ -180,31 +178,36 @@ async function readLocalFile(filePath, originalUrl = null) {
 
 >>>>>>> 222e705 (failed to local)
 // Custom document loader with mappings support
+=======
+// Custom document loader - treats local files as file:// URLs
+>>>>>>> 9ec64c7 (intial setup)
 async function documentLoader(url) {
-  // First, check if this is a relative path that needs resolution
-  if (!url.includes('://') && !url.startsWith('/')) {
-    // Look for a base path in our document cache
-    for (const [docUrl, basePath] of documentBasePaths.entries()) {
-      // Try to resolve relative to this base
-      const resolved = resolveRelativePath(url, basePath);
-      
-      if (fs.existsSync(resolved)) {
-        console.log(`Resolved relative: ${url} -> ${resolved} (base: ${basePath})`);
-        return readLocalFile(resolved, url);
-      }
-    }
-  }
-  
-  // Apply chained mappings
+  // Apply chained mappings first
   const resolvedUrl = applyMappings(url);
   
   if (resolvedUrl !== url) {
-    console.log(`Mapping chain: ${url} -> ${resolvedUrl}`);
+    console.log(`Mapping: ${url} -> ${resolvedUrl}`);
   }
   
-  // Handle local file paths
-  if (isLocalPath(resolvedUrl)) {
-    return readLocalFile(resolvedUrl, url);
+  // Check if it's a local file path (NOT http:// or https://)
+  if (!resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://')) {
+    try {
+      // Resolve to absolute path
+      const absolutePath = path.resolve(resolvedUrl.replace('file://', ''));
+      const content = fs.readFileSync(absolutePath, 'utf8');
+      const document = JSON.parse(content);
+      
+      console.log(`Loaded local: ${absolutePath}`);
+      
+      // Return with file:// URL - jsonld uses this to resolve relative @context paths!
+      return {
+        contextUrl: null,
+        document: document,
+        documentUrl: 'file://' + absolutePath
+      };
+    } catch (error) {
+      throw new Error(`Could not load local file ${resolvedUrl}: ${error.message}`);
+    }
   }
   
   // Handle http/https URLs
@@ -236,6 +239,9 @@ async function documentLoader(url) {
       let data = '';
       
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9ec64c7 (intial setup)
       // Handle redirects
       if (res.statusCode === 301 || res.statusCode === 302) {
         return documentLoader(res.headers.location).then(resolve).catch(reject);
@@ -246,6 +252,7 @@ async function documentLoader(url) {
         return;
       }
       
+<<<<<<< HEAD
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try {
@@ -264,9 +271,17 @@ async function documentLoader(url) {
 <<<<<<< HEAD
 >>>>>>> 7e7799a (v1 no local files)
 =======
+=======
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          let document = JSON.parse(data);
+>>>>>>> 9ec64c7 (intial setup)
           
-          // Store base URL for relative context resolution
-          documentBasePaths.set(url, resolvedUrl);
+          // Handle array context
+          if (Array.isArray(document)) {
+            document = { '@context': document };
+          }
           
 >>>>>>> 222e705 (failed to local)
           resolve({
@@ -402,7 +417,6 @@ async function handleRequest(req, res) {
     if (url.pathname === '/cache' && req.method === 'DELETE') {
       const size = cache.size;
       cache.clear();
-      documentBasePaths.clear();
       console.log(`Cache cleared: ${size} entries removed`);
       sendJson(res, 200, { cleared: size });
       return;
@@ -430,10 +444,6 @@ async function handleRequest(req, res) {
       }
 
       console.log(`Cache MISS: ${cacheKey}`);
-      
-      // Clear document base paths for clean processing
-      documentBasePaths.clear();
-      
       const result = await expandRecursive(jsonld, body.url, depth);
       cache.set(cacheKey, result);
       
@@ -463,10 +473,6 @@ async function handleRequest(req, res) {
       }
 
       console.log(`Cache MISS: ${cacheKey}`);
-      
-      // Clear document base paths for clean processing
-      documentBasePaths.clear();
-      
       const result = await compactJsonLd(jsonld, body.url, depth);
       cache.set(cacheKey, result);
       
@@ -514,10 +520,8 @@ server.listen(PORT, () => {
 =======
   console.log('Features:');
   console.log('  ✓ HTTP/HTTPS URLs');
-  console.log('  ✓ Local file paths (absolute: /path/to/file.jsonld)');
-  console.log('  ✓ Local file paths (relative: ./file.jsonld, ../file.jsonld)');
-  console.log('  ✓ File URLs (file:///path/to/file.jsonld)');
-  console.log('  ✓ Automatic relative @context resolution');
+  console.log('  ✓ Local file paths (absolute and relative)');
+  console.log('  ✓ Automatic relative @context resolution via file:// URLs');
   console.log('  ✓ Chained URL mappings');
   console.log('');
 >>>>>>> 222e705 (failed to local)
@@ -553,7 +557,6 @@ server.listen(PORT, () => {
 process.on('SIGTERM', () => {
   console.log('\nSIGTERM received, clearing cache...');
   cache.clear();
-  documentBasePaths.clear();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);
@@ -563,7 +566,6 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('\nSIGINT received, clearing cache...');
   cache.clear();
-  documentBasePaths.clear();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);
