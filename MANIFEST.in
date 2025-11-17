@@ -1,0 +1,7 @@
+include ldr-server.js
+include ldr
+include lib/ldr-core.js
+include lib/ldr-browser.js
+include README.md
+include LICENSE
+recursive-include lib *.js
