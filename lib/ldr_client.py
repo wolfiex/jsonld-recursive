@@ -87,7 +87,11 @@ class LdrClient:
             
             # Set mappings after server starts
             if self.initial_mappings:
+<<<<<<< HEAD
                 time.sleep(0.5)
+=======
+                time.sleep(0.5)  # Give server a moment to fully start
+>>>>>>> 168e824 (development)
                 self.set_mappings(self.initial_mappings)
     
     def _is_server_running(self) -> bool:
@@ -98,6 +102,7 @@ class LdrClient:
         except:
             return False
     
+<<<<<<< HEAD
     def _start_server(self):
         """Start the server in background."""
         # Check if ldr command is available globally
@@ -106,6 +111,16 @@ class LdrClient:
             
             # Build command
             cmd = ['ldr', 'server', 'start', str(self.port)]
+=======
+    def _start_server(self, port: int = 3000):
+        """Start the server in background."""
+        # Check if ldr command is available globally
+        if shutil.which('ldr'):
+            print(f"Starting LDR server on port {port} (using global ldr command)...", flush=True)
+            
+            # Build command
+            cmd = ['ldr', 'server', 'start', str(port)]
+>>>>>>> 168e824 (development)
             
             # Add mappings file if provided
             if self.mappings_file:
@@ -121,16 +136,79 @@ class LdrClient:
             for i in range(20):
                 time.sleep(0.5)
                 if self._is_server_running():
+<<<<<<< HEAD
                     print(f"Server started on port {self.port}", flush=True)
+=======
+                    print(f"Server started on port {port}", flush=True)
+>>>>>>> 168e824 (development)
                     self.auto_started = True
                     return
             
             raise RuntimeError("Server failed to start within 10 seconds")
+<<<<<<< HEAD
         
         raise RuntimeError(
             "Could not find ldr command. "
             "Install with: npm install -g jsonld-recursive"
+=======
+        
+        # Fallback: look for ldr-server.js script
+        server_script = self._find_server_script()
+        
+        if not server_script:
+            raise RuntimeError(
+                "Could not find ldr command or ldr-server.js. "
+                "Install with: npm install -g jsonld-recursive"
+            )
+        
+        print(f"Starting LDR server on port {port}...", flush=True)
+        
+        env = os.environ.copy()
+        env['PORT'] = str(port)
+        
+        if self.mappings_file:
+            env['MAPPINGS_FILE'] = self.mappings_file
+        
+        self.server_process = subprocess.Popen(
+            ['node', server_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=True
+>>>>>>> 168e824 (development)
         )
+    
+    def _find_server_script(self) -> Optional[str]:
+        """Find ldr-server.js script (fallback if ldr command not available)."""
+        # Current directory
+        if os.path.exists('ldr-server.js'):
+            return os.path.abspath('ldr-server.js')
+        
+        # Parent directory
+        if os.path.exists('../ldr-server.js'):
+            return os.path.abspath('../ldr-server.js')
+        
+        # Installed package directory (same directory as this Python file)
+        package_dir = Path(__file__).parent.parent
+        server_script = package_dir / 'ldr-server.js'
+        if server_script.exists():
+            return str(server_script.absolute())
+        
+        # Try one level up from package (for editable installs)
+        server_script = package_dir.parent / 'ldr-server.js'
+        if server_script.exists():
+            return str(server_script.absolute())
+        
+        # node_modules
+        paths = [
+            'node_modules/jsonld-recursive/ldr-server.js',
+            '../node_modules/jsonld-recursive/ldr-server.js'
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                return os.path.abspath(p)
+        
+        return None
     
     def stop_server(self):
         """Stop auto-started server."""
@@ -138,6 +216,10 @@ class LdrClient:
             return
         
         try:
+<<<<<<< HEAD
+=======
+            # Use ldr command if available
+>>>>>>> 168e824 (development)
             if shutil.which('ldr'):
                 subprocess.run(['ldr', 'server', 'stop'], timeout=2, capture_output=True)
             else:
