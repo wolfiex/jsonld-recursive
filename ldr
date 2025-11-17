@@ -10,8 +10,56 @@ const { expandRecursive, compactJsonLd } = require('./lib/ldr-core');
 
 const PID_FILE = path.join(__dirname, '.ldr-server.pid');
 
+// Check if a string is a local file path
+function isLocalPath(str) {
+  // Absolute paths
+  if (str.startsWith('/') || str.startsWith('file://')) {
+    return true;
+  }
+  // Windows paths
+  if (/^[a-zA-Z]:[\\/]/.test(str)) {
+    return true;
+  }
+  // Relative paths (but not URLs)
+  if ((str.startsWith('./') || str.startsWith('../')) && !str.includes('://')) {
+    return true;
+  }
+  return false;
+}
+
+// Read a local file
+async function readLocalFile(filePath) {
+  const cleanPath = filePath.replace('file://', '');
+  const resolvedPath = path.resolve(cleanPath);
+  
+  return new Promise((resolve, reject) => {
+    fs.readFile(resolvedPath, 'utf8', (err, data) => {
+      if (err) {
+        reject(new Error(`Failed to read file ${resolvedPath}: ${err.message}`));
+        return;
+      }
+      try {
+        const document = JSON.parse(data);
+        resolve({
+          contextUrl: null,
+          document: document,
+          documentUrl: `file://${resolvedPath}`
+        });
+      } catch (error) {
+        reject(new Error(`Failed to parse JSON from ${resolvedPath}: ${error.message}`));
+      }
+    });
+  });
+}
+
 // Document loader
 async function documentLoader(url) {
+  // Handle local file paths
+  if (isLocalPath(url)) {
+    return readLocalFile(url);
+  }
+  
+  // Handle http/https URLs
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https:') ? https : http;
     
@@ -239,6 +287,7 @@ async function main() {
     console.error('  ldr mappings set mappings.json');
     console.error('  ldr mappings set \'{"old:*":"https://new/${rest}"}\'');
     console.error('  ldr compact <url> -d 3 --server');
+    console.error('  ldr compact /path/to/file.jsonld -d 3');
     process.exit(1);
   }
   
