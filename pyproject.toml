@@ -70,6 +70,7 @@ packages = ["jsonld_recursive"]
 [tool.setuptools.package-dir]
 jsonld_recursive = "lib"
 
+<<<<<<< HEAD
 [tool.setuptools.package-data]
 jsonld_recursive = ["*.py"]
 =======
@@ -89,6 +90,8 @@ ldr_client = ["*.py"]
 jsonld_recursive = ["*.py"]
 >>>>>>> 9ec64c7 (intial setup)
 
+=======
+>>>>>>> 6dc6b49 (server fix)
 [tool.black]
 line-length = 100
 target-version = ['py37', 'py38', 'py39', 'py310', 'py311']
