@@ -12,6 +12,7 @@ const PID_FILE = path.join(__dirname, '.ldr-server.pid');
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 // Create HTTP agents that don't keep connections alive
 const httpAgent = new http.Agent({ keepAlive: false });
 const httpsAgent = new https.Agent({ keepAlive: false });
@@ -117,25 +118,72 @@ async function readLocalFile(filePath) {
 
 >>>>>>> 222e705 (failed to local)
 // Document loader
+=======
+// Create HTTP agents that don't keep connections alive
+const httpAgent = new http.Agent({ keepAlive: false });
+const httpsAgent = new https.Agent({ keepAlive: false });
+
+// Custom document loader - treats local files as file:// URLs
+>>>>>>> 9ec64c7 (intial setup)
 async function documentLoader(url) {
-  // Handle local file paths
-  if (isLocalPath(url)) {
-    return readLocalFile(url);
+  // Check if it's a local file path (NOT http:// or https://)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    try {
+      // Resolve to absolute path
+      const absolutePath = path.resolve(url.replace('file://', ''));
+      const content = fs.readFileSync(absolutePath, 'utf8');
+      const document = JSON.parse(content);
+      
+      // Return with file:// URL - jsonld uses this to resolve relative @context paths!
+      return {
+        contextUrl: null,
+        document: document,
+        documentUrl: 'file://' + absolutePath
+      };
+    } catch (error) {
+      throw new Error(`Could not load local file ${url}: ${error.message}`);
+    }
   }
   
-  // Handle http/https URLs
+  // Handle http/https URLs with no keep-alive
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https:') ? https : http;
+    const agent = url.startsWith('https:') ? httpsAgent : httpAgent;
     
-    client.get(url, { headers: { 'Accept': 'application/ld+json, application/json' } }, (res) => {
+    const req = client.get(url, { 
+      headers: { 'Accept': 'application/ld+json, application/json' },
+      agent: agent  // Use agent that doesn't keep connections alive
+    }, (res) => {
       let data = '';
+      
+      // Handle redirects
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        return documentLoader(res.headers.location).then(resolve).catch(reject);
+      }
+      
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+        return;
+      }
+      
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try {
+          let document = JSON.parse(data);
+          
+          // Handle array context
+          if (Array.isArray(document)) {
+            document = { '@context': document };
+          }
+          
           resolve({
             contextUrl: null,
+<<<<<<< HEAD
             document: JSON.parse(data),
 >>>>>>> 7e7799a (v1 no local files)
+=======
+            document: document,
+>>>>>>> 9ec64c7 (intial setup)
             documentUrl: url
           });
         } catch (error) {
@@ -143,12 +191,18 @@ async function documentLoader(url) {
         }
       });
 <<<<<<< HEAD
+<<<<<<< HEAD
     });
     
     req.on('error', reject);
 =======
     }).on('error', reject);
 >>>>>>> 7e7799a (v1 no local files)
+=======
+    });
+    
+    req.on('error', reject);
+>>>>>>> 9ec64c7 (intial setup)
   });
 }
 
@@ -433,24 +487,33 @@ async function main() {
         const result = await apiRequest('POST', '/mappings', { file: opts.mappingsFile });
         console.log(result.message);
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9ec64c7 (intial setup)
         process.exit(0);
       } else if (opts.mappingsJson) {
         const result = await apiRequest('POST', '/mappings', { mappings: opts.mappingsJson });
         console.log(result.message);
         process.exit(0);
+<<<<<<< HEAD
 =======
       } else if (opts.mappingsJson) {
         const result = await apiRequest('POST', '/mappings', { mappings: opts.mappingsJson });
         console.log(result.message);
 >>>>>>> 7e7799a (v1 no local files)
+=======
+>>>>>>> 9ec64c7 (intial setup)
       } else {
         console.error('Error: Mappings file or JSON required');
         process.exit(1);
       }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       process.exit(0);
 >>>>>>> 7e7799a (v1 no local files)
+=======
+>>>>>>> 9ec64c7 (intial setup)
     } else if (opts.subcommand === 'clear') {
       const result = await apiRequest('DELETE', '/mappings');
       console.log(`Cleared ${result.cleared} mappings`);
@@ -499,6 +562,9 @@ async function main() {
       console.error('Stop with: ldr server stop');
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9ec64c7 (intial setup)
     
     // Destroy agents to close connections immediately
     httpAgent.destroy();
@@ -508,10 +574,13 @@ async function main() {
     console.error('Error:', error.message);
     httpAgent.destroy();
     httpsAgent.destroy();
+<<<<<<< HEAD
 =======
   } catch (error) {
     console.error('Error:', error.message);
 >>>>>>> 7e7799a (v1 no local files)
+=======
+>>>>>>> 9ec64c7 (intial setup)
     process.exit(1);
   }
 }
