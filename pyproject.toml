@@ -63,6 +63,7 @@ Repository = "https://github.com/wolfiex/jsonld-recursive.git"
 Issues = "https://github.com/wolfiex/jsonld-recursive/issues"
 
 [tool.setuptools]
+<<<<<<< HEAD
 packages = ["jsonld_recursive"]
 
 [tool.setuptools.package-dir]
@@ -70,6 +71,15 @@ jsonld_recursive = "lib"
 
 [tool.setuptools.package-data]
 jsonld_recursive = ["*.py"]
+=======
+packages = ["ldr_client"]
+
+[tool.setuptools.package-dir]
+ldr_client = "lib"
+
+[tool.setuptools.package-data]
+ldr_client = ["*.py"]
+>>>>>>> 7e7799a (v1 no local files)
 
 [tool.black]
 line-length = 100

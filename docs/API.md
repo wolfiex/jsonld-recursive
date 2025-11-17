@@ -1,12 +1,25 @@
+<<<<<<< HEAD
 # API Documentation
 
 Complete usage examples for jsonld-recursive.
 
 ## Python Client
+=======
+# LDR API Documentation
+
+## Python Client Library
+
+### Installation
+
+```python
+from lib.ldr_client import LdrClient
+```
+>>>>>>> 7e7799a (v1 no local files)
 
 ### Basic Usage
 
 ```python
+<<<<<<< HEAD
 from lib.ldr_client import LdrClient
 
 # Connect to running server
@@ -19,6 +32,16 @@ print(result)
 # Expand document
 result = client.expand("https://example.com/data.jsonld", depth=2)
 print(result)
+=======
+# Create client
+client = LdrClient("http://localhost:3000")
+
+# Compact (recommended - resolves all references)
+result = client.compact("https://example.com/data.jsonld", depth=3)
+
+# Expand
+result = client.expand("https://example.com/data.jsonld", depth=2)
+>>>>>>> 7e7799a (v1 no local files)
 
 # Close when done
 client.close()
@@ -29,6 +52,7 @@ client.close()
 ```python
 with LdrClient() as client:
     result = client.compact("https://example.com/data.jsonld", depth=3)
+<<<<<<< HEAD
     print(result)
 # Client automatically closed
 ```
@@ -38,10 +62,17 @@ with LdrClient() as client:
 The easiest way to use the client - it handles server lifecycle automatically!
 
 ### Basic Auto-Start
+=======
+    # Client automatically closed
+```
+
+### Multiple Requests
+>>>>>>> 7e7799a (v1 no local files)
 
 ```python
 from lib.ldr_client import LdrClient
 
+<<<<<<< HEAD
 # Server starts automatically when created
 client = LdrClient(auto_start_server=True)
 
@@ -445,10 +476,86 @@ Response:
     "@context": "...",
     "@graph": [...]
   },
+=======
+# Client reuses connections (connection pooling)
+with LdrClient() as client:
+    urls = [
+        "https://example.com/1.jsonld",
+        "https://example.com/2.jsonld",
+        "https://example.com/3.jsonld"
+    ]
+    
+    results = []
+    for url in urls:
+        result = client.compact(url, depth=3)
+        results.append(result)
+```
+
+### Batch Processing
+
+```python
+with LdrClient() as client:
+    urls = ["url1", "url2", "url3"]
+    results = client.compact_batch(urls, depth=3)
+```
+
+### Cache Operations
+
+```python
+with LdrClient() as client:
+    # Get cache stats
+    stats = client.cache_stats()
+    print(f"Cache has {stats['size']} entries")
+    
+    # List cached URLs
+    cached = client.cache_list()
+    print(f"Cached {cached['count']} URLs")
+    
+    # Clear cache
+    cleared = client.cache_clear()
+```
+
+### Configuration
+
+```python
+client = LdrClient(
+    base_url="http://localhost:3000",  # Server URL
+    timeout=30,                         # Request timeout (seconds)
+    max_retries=3                       # Max retries for failed requests
+)
+```
+
+### Silent Mode
+
+```python
+# Disable cache hit/miss messages
+result = client.compact("https://example.com/data.jsonld", depth=3, verbose=False)
+```
+
+## HTTP API Endpoints
+
+### POST /expand
+
+Expand JSON-LD document.
+
+**Request:**
+```json
+{
+  "url": "https://example.com/data.jsonld",
+  "depth": 3
+}
+```
+
+**Response:**
+```json
+{
+  "result": { ... },
+>>>>>>> 7e7799a (v1 no local files)
   "cached": false
 }
 ```
 
+<<<<<<< HEAD
 ### POST /expand
 
 Expand a JSON-LD document.
@@ -466,12 +573,31 @@ Response:
 ```json
 {
   "result": [...],
+=======
+### POST /compact
+
+Compact JSON-LD document (recommended).
+
+**Request:**
+```json
+{
+  "url": "https://example.com/data.jsonld",
+  "depth": 3
+}
+```
+
+**Response:**
+```json
+{
+  "result": { ... },
+>>>>>>> 7e7799a (v1 no local files)
   "cached": false
 }
 ```
 
 ### GET /health
 
+<<<<<<< HEAD
 Health check endpoint.
 
 ```bash
@@ -484,11 +610,21 @@ Response:
   "status": "ok",
   "cache_size": 5,
   "mappings_count": 2
+=======
+Health check.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "cache_size": 5
+>>>>>>> 7e7799a (v1 no local files)
 }
 ```
 
 ### GET /cache/stats
 
+<<<<<<< HEAD
 Get cache statistics.
 
 ```bash
@@ -503,11 +639,21 @@ Response:
     "compact:https://example.com/data.jsonld:3",
     "expand:https://example.com/other.jsonld:2"
   ]
+=======
+Cache statistics.
+
+**Response:**
+```json
+{
+  "size": 5,
+  "keys": ["compact:https://...:3"]
+>>>>>>> 7e7799a (v1 no local files)
 }
 ```
 
 ### GET /cache/list
 
+<<<<<<< HEAD
 List all cached URLs.
 
 ```bash
@@ -522,11 +668,21 @@ Response:
     "compact:https://example.com/data.jsonld:3",
     "expand:https://example.com/other.jsonld:2"
   ]
+=======
+List cached URLs.
+
+**Response:**
+```json
+{
+  "count": 5,
+  "urls": ["compact:https://...:3"]
+>>>>>>> 7e7799a (v1 no local files)
 }
 ```
 
 ### DELETE /cache
 
+<<<<<<< HEAD
 Clear the entire cache.
 
 ```bash
@@ -534,12 +690,18 @@ curl -X DELETE http://localhost:3000/cache
 ```
 
 Response:
+=======
+Clear cache.
+
+**Response:**
+>>>>>>> 7e7799a (v1 no local files)
 ```json
 {
   "cleared": 5
 }
 ```
 
+<<<<<<< HEAD
 ### GET /mappings
 
 Get current URL mappings.
@@ -722,12 +884,15 @@ client.stop_server()  # Only for auto-started servers
 client.close()  # Close HTTP session
 ```
 
+=======
+>>>>>>> 7e7799a (v1 no local files)
 ## Error Handling
 
 ```python
 from lib.ldr_client import LdrClient
 import requests
 
+<<<<<<< HEAD
 try:
     with LdrClient(auto_start_server=True) as client:
         result = client.compact("https://example.com/data.jsonld", depth=3)
@@ -801,3 +966,31 @@ with LdrClient(
 - [CLI.md](CLI.md) - Complete CLI reference
 - [MAPPINGS.md](MAPPINGS.md) - Detailed mappings guide
 - [examples/example_usage.py](../examples/example_usage.py) - Runnable examples
+=======
+with LdrClient() as client:
+    try:
+        result = client.compact("https://example.com/data.jsonld", depth=3)
+    except requests.exceptions.ConnectionError:
+        print("Server not running")
+    except requests.exceptions.Timeout:
+        print("Request timed out")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+```
+
+## Server Management
+
+```bash
+# Start server
+node ldr-server.js
+
+# Stop server
+pkill ldr-server
+
+# Check if running
+ps aux | grep ldr-server
+
+# Custom port
+PORT=8080 node ldr-server.js
+```
+>>>>>>> 7e7799a (v1 no local files)

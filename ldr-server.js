@@ -5,7 +5,10 @@ process.title = 'ldr-server';
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
+<<<<<<< HEAD
 const path = require('path');
+=======
+>>>>>>> 7e7799a (v1 no local files)
 const jsonld = require('jsonld');
 const { expandRecursive, compactJsonLd } = require('./lib/ldr-core');
 
@@ -66,6 +69,7 @@ function applySingleMapping(url) {
   return url;
 }
 
+<<<<<<< HEAD
 // Custom document loader - treats local files as file:// URLs
 async function documentLoader(url) {
   // Apply chained mappings first
@@ -98,11 +102,41 @@ async function documentLoader(url) {
   
   // Handle http/https URLs
   return new Promise((resolve, reject) => {
+=======
+// Custom document loader with mappings support
+async function documentLoader(url) {
+  // Apply chained mappings
+  const resolvedUrl = applyMappings(url);
+  
+  if (resolvedUrl !== url) {
+    console.log(`Mapping chain: ${url} -> ${resolvedUrl}`);
+  }
+  
+  return new Promise((resolve, reject) => {
+    // Handle file:// URLs
+    if (resolvedUrl.startsWith('file://') || resolvedUrl.startsWith('/')) {
+      const filePath = resolvedUrl.replace('file://', '');
+      try {
+        const document = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        resolve({
+          contextUrl: null,
+          document: document,
+          documentUrl: resolvedUrl
+        });
+      } catch (error) {
+        reject(new Error(`Failed to read file ${filePath}: ${error.message}`));
+      }
+      return;
+    }
+    
+    // Handle http/https URLs
+>>>>>>> 7e7799a (v1 no local files)
     const client = resolvedUrl.startsWith('https:') ? https : http;
     
     client.get(resolvedUrl, { headers: { 'Accept': 'application/ld+json, application/json' } }, (res) => {
       let data = '';
       
+<<<<<<< HEAD
       // Handle redirects
       if (res.statusCode === 301 || res.statusCode === 302) {
         return documentLoader(res.headers.location).then(resolve).catch(reject);
@@ -123,6 +157,12 @@ async function documentLoader(url) {
             document = { '@context': document };
           }
           
+=======
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const document = JSON.parse(data);
+>>>>>>> 7e7799a (v1 no local files)
           resolve({
             contextUrl: null,
             document: document,
@@ -346,12 +386,15 @@ server.listen(PORT, () => {
   console.log('  POST /mappings       - Set URL mappings');
   console.log('  DELETE /mappings     - Clear mappings');
   console.log('');
+<<<<<<< HEAD
   console.log('Features:');
   console.log('  ✓ HTTP/HTTPS URLs');
   console.log('  ✓ Local file paths (absolute and relative)');
   console.log('  ✓ Automatic relative @context resolution via file:// URLs');
   console.log('  ✓ Chained URL mappings');
   console.log('');
+=======
+>>>>>>> 7e7799a (v1 no local files)
   
   // Load mappings from file if specified
   if (MAPPINGS_FILE) {
@@ -368,7 +411,11 @@ server.listen(PORT, () => {
     }
   }
   
+<<<<<<< HEAD
   console.log(`Cache: ${cache.size} entries`);
+=======
+  console.log(`\nCache: ${cache.size} entries`);
+>>>>>>> 7e7799a (v1 no local files)
   console.log(`Mappings: ${Object.keys(urlMappings).length} rules`);
 });
 

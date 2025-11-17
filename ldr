@@ -10,6 +10,7 @@ const { expandRecursive, compactJsonLd } = require('./lib/ldr-core');
 
 const PID_FILE = path.join(__dirname, '.ldr-server.pid');
 
+<<<<<<< HEAD
 // Create HTTP agents that don't keep connections alive
 const httpAgent = new http.Agent({ keepAlive: false });
 const httpsAgent = new https.Agent({ keepAlive: false });
@@ -69,15 +70,34 @@ async function documentLoader(url) {
           resolve({
             contextUrl: null,
             document: document,
+=======
+// Document loader
+async function documentLoader(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https:') ? https : http;
+    
+    client.get(url, { headers: { 'Accept': 'application/ld+json, application/json' } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve({
+            contextUrl: null,
+            document: JSON.parse(data),
+>>>>>>> 7e7799a (v1 no local files)
             documentUrl: url
           });
         } catch (error) {
           reject(new Error(`Failed to parse JSON from ${url}: ${error.message}`));
         }
       });
+<<<<<<< HEAD
     });
     
     req.on('error', reject);
+=======
+    }).on('error', reject);
+>>>>>>> 7e7799a (v1 no local files)
   });
 }
 
@@ -287,7 +307,10 @@ async function main() {
     console.error('  ldr mappings set mappings.json');
     console.error('  ldr mappings set \'{"old:*":"https://new/${rest}"}\'');
     console.error('  ldr compact <url> -d 3 --server');
+<<<<<<< HEAD
     console.error('  ldr compact /path/to/file.jsonld -d 3');
+=======
+>>>>>>> 7e7799a (v1 no local files)
     process.exit(1);
   }
   
@@ -354,15 +377,25 @@ async function main() {
       if (opts.mappingsFile) {
         const result = await apiRequest('POST', '/mappings', { file: opts.mappingsFile });
         console.log(result.message);
+<<<<<<< HEAD
         process.exit(0);
       } else if (opts.mappingsJson) {
         const result = await apiRequest('POST', '/mappings', { mappings: opts.mappingsJson });
         console.log(result.message);
         process.exit(0);
+=======
+      } else if (opts.mappingsJson) {
+        const result = await apiRequest('POST', '/mappings', { mappings: opts.mappingsJson });
+        console.log(result.message);
+>>>>>>> 7e7799a (v1 no local files)
       } else {
         console.error('Error: Mappings file or JSON required');
         process.exit(1);
       }
+<<<<<<< HEAD
+=======
+      process.exit(0);
+>>>>>>> 7e7799a (v1 no local files)
     } else if (opts.subcommand === 'clear') {
       const result = await apiRequest('DELETE', '/mappings');
       console.log(`Cleared ${result.cleared} mappings`);
@@ -410,6 +443,7 @@ async function main() {
       console.error('Server running in background');
       console.error('Stop with: ldr server stop');
     }
+<<<<<<< HEAD
     
     // Destroy agents to close connections immediately
     httpAgent.destroy();
@@ -419,6 +453,10 @@ async function main() {
     console.error('Error:', error.message);
     httpAgent.destroy();
     httpsAgent.destroy();
+=======
+  } catch (error) {
+    console.error('Error:', error.message);
+>>>>>>> 7e7799a (v1 no local files)
     process.exit(1);
   }
 }
