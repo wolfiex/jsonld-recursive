@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LDR - JSON-LD Recursive Expand/Compact</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #555;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 5px 5px 5px 0;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input[type="text"] {
+      width: 100%;
+      max-width: 600px;
+    }
+    input[type="number"] {
+      width: 100px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    #output {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+      border: 1px solid #333;
+      padding: 15px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: 'Courier New', Consolas, monospace;
+      font-size: 12px;
+      max-height: 600px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .status.info {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+    .status.success {
+      background-color: #e8f5e9;
+      color: #388e3c;
+    }
+    .status.error {
+      background-color: #ffebee;
+      color: #d32f2f;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>LDR - JSON-LD Recursive Expand/Compact</h1>
+  
+  <div class="container">
+    <label>URL:</label>
+    <input type="text" id="url" value="https://wcrp-cmip.github.io/CMIP7-CVs/experiment/graph.jsonld" placeholder="Enter JSON-LD URL">
+  </div>
+  
+  <div class="container">
+    <div class="controls">
+      <div>
+        <label>Depth:</label>
+        <input type="number" id="depth" value="3" min="1" max="10">
+      </div>
+      
+      <div>
+        <label>Operation:</label>
+        <select id="operation">
+          <option value="compact">Compact</option>
+          <option value="expand">Expand</option>
+        </select>
+      </div>
+      
+      <div>
+        <label>&nbsp;</label>
+        <button id="processBtn" onclick="process()">Process</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div id="status" class="status info">Ready - Click Process to start</div>
+  </div>
+  
+  <div class="container">
+    <h3>Output:</h3>
+    <div id="output">Results will appear here...</div>
+  </div>
+
+  <!-- Load from CDN or local -->
+  <script src="https://cdn.jsdelivr.net/npm/jsonld@8.3.1/dist/jsonld.min.js"></script>
+  <script src="lib/ldr-core.js"></script>
+  <script src="lib/ldr-browser.js"></script>
+
+  <script>
+    let result = null;
+
+    async function process() {
+      const url = document.getElementById('url').value;
+      const depth = parseInt(document.getElementById('depth').value);
+      const operation = document.getElementById('operation').value;
+      const statusEl = document.getElementById('status');
+      const outputEl = document.getElementById('output');
+      const btn = document.getElementById('processBtn');
+
+      if (!url) {
+        alert('Please enter a URL');
+        return;
+      }
+
+      try {
+        btn.disabled = true;
+        statusEl.textContent = 'Processing...';
+        statusEl.className = 'status info';
+        outputEl.textContent = 'Loading...';
+
+        await JsonLdExpand.init();
+
+        const startTime = performance.now();
+
+        if (operation === 'expand') {
+          result = await JsonLdExpand.expand(url, { depth });
+        } else {
+          result = await JsonLdExpand.compact(url, { depth });
+        }
+
+        const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+
+        outputEl.textContent = JSON.stringify(result, null, 2);
+        statusEl.textContent = `Success! ${operation === 'expand' ? 'Expanded' : 'Compacted'} at depth ${depth} (${duration}s)`;
+        statusEl.className = 'status success';
+        
+        // Make result available in console
+        window.lastResult = result;
+        console.log('Result stored in window.lastResult');
+        console.log(`Processed in ${duration}s`);
+
+      } catch (error) {
+        statusEl.textContent = 'Error: ' + error.message;
+        statusEl.className = 'status error';
+        outputEl.textContent = error.stack || error.message;
+        console.error(error);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Initialize
+    window.addEventListener('load', () => {
+      console.log('LDR Web Interface ready');
+      console.log('Use window.lastResult to access last result');
+      console.log('Use await JsonLdExpand.compact(url, {depth: 3}) in console');
+    });
+  </script>
+</body>
+</html>
