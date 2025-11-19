@@ -1,3 +1,9 @@
+
+lib/__*
+
+.DS_Store
+**/.DS_Store
+
 # Logs
 logs
 *.log
