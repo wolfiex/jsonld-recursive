@@ -8,7 +8,6 @@ import json
 import subprocess
 import time
 import os
-import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -26,8 +25,7 @@ class LdrClient:
         timeout: int = 30,
         max_retries: int = 3,
         auto_start_server: bool = False,
-        mappings_file: Optional[str] = None,
-        mappings: Optional[Dict[str, str]] = None
+        mappings_file: Optional[str] = None
     ):
         """
         Initialize the client.
@@ -38,14 +36,12 @@ class LdrClient:
             max_retries: Maximum number of retries for failed requests
             auto_start_server: Automatically start server if not running
             mappings_file: Path to JSON file with URL mappings
-            mappings: Dictionary of URL mappings to set on initialization
         """
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
         self.auto_started = False
         self.server_pid = None
         self.mappings_file = mappings_file
-        self.initial_mappings = mappings
         
         # Create session with connection pooling
         self.session = requests.Session()
@@ -68,11 +64,6 @@ class LdrClient:
         if auto_start_server:
             if not self._is_server_running():
                 self._start_server()
-            
-            # Set mappings after server starts
-            if self.initial_mappings:
-                time.sleep(0.5)  # Give server a moment to fully start
-                self.set_mappings(self.initial_mappings)
     
     def _is_server_running(self) -> bool:
         """Check if server is running."""
@@ -82,42 +73,35 @@ class LdrClient:
         except:
             return False
     
+    def _find_server_script(self) -> Optional[str]:
+        """Find ldr-server.js script."""
+        # Current directory
+        if os.path.exists('ldr-server.js'):
+            return os.path.abspath('ldr-server.js')
+        
+        # Parent directory
+        if os.path.exists('../ldr-server.js'):
+            return os.path.abspath('../ldr-server.js')
+        
+        # node_modules
+        paths = [
+            'node_modules/jsonld-recursive/ldr-server.js',
+            '../node_modules/jsonld-recursive/ldr-server.js'
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                return os.path.abspath(p)
+        
+        return None
+    
     def _start_server(self, port: int = 3000):
         """Start the server in background."""
-        # Check if ldr command is available globally
-        if shutil.which('ldr'):
-            print(f"Starting LDR server on port {port} (using global ldr command)...", flush=True)
-            
-            # Build command
-            cmd = ['ldr', 'server', 'start', str(port)]
-            
-            # Add mappings file if provided
-            if self.mappings_file:
-                cmd.append(self.mappings_file)
-            
-            # Start server using global ldr command
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode != 0:
-                raise RuntimeError(f"Failed to start server: {result.stderr}")
-            
-            # Wait for server to start
-            for i in range(20):
-                time.sleep(0.5)
-                if self._is_server_running():
-                    print(f"Server started on port {port}", flush=True)
-                    self.auto_started = True
-                    return
-            
-            raise RuntimeError("Server failed to start within 10 seconds")
-        
-        # Fallback: look for ldr-server.js script
         server_script = self._find_server_script()
         
         if not server_script:
             raise RuntimeError(
-                "Could not find ldr command or ldr-server.js. "
-                "Install with: npm install -g jsonld-recursive"
+                "Could not find ldr-server.js. "
+                "Install with: npm install jsonld-recursive"
             )
         
         print(f"Starting LDR server on port {port}...", flush=True)
@@ -148,49 +132,13 @@ class LdrClient:
         
         raise RuntimeError("Server failed to start within 10 seconds")
     
-    def _find_server_script(self) -> Optional[str]:
-        """Find ldr-server.js script (fallback if ldr command not available)."""
-        # Current directory
-        if os.path.exists('ldr-server.js'):
-            return os.path.abspath('ldr-server.js')
-        
-        # Parent directory
-        if os.path.exists('../ldr-server.js'):
-            return os.path.abspath('../ldr-server.js')
-        
-        # Installed package directory (same directory as this Python file)
-        package_dir = Path(__file__).parent.parent
-        server_script = package_dir / 'ldr-server.js'
-        if server_script.exists():
-            return str(server_script.absolute())
-        
-        # Try one level up from package (for editable installs)
-        server_script = package_dir.parent / 'ldr-server.js'
-        if server_script.exists():
-            return str(server_script.absolute())
-        
-        # node_modules
-        paths = [
-            'node_modules/jsonld-recursive/ldr-server.js',
-            '../node_modules/jsonld-recursive/ldr-server.js'
-        ]
-        for p in paths:
-            if os.path.exists(p):
-                return os.path.abspath(p)
-        
-        return None
-    
     def stop_server(self):
         """Stop auto-started server."""
         if not self.auto_started:
             return
         
         try:
-            # Use ldr command if available
-            if shutil.which('ldr'):
-                subprocess.run(['ldr', 'server', 'stop'], timeout=2, capture_output=True)
-            else:
-                subprocess.run(['pkill', 'ldr-server'], timeout=2)
+            subprocess.run(['pkill', 'ldr-server'], timeout=2)
             print(f"Server stopped", flush=True)
             self.auto_started = False
         except Exception as e:
