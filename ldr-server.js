@@ -7,12 +7,18 @@ const https = require('https');
 const fs = require('fs');
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const path = require('path');
 =======
 >>>>>>> 7e7799a (v1 no local files)
 =======
 const path = require('path');
 >>>>>>> 222e705 (failed to local)
+=======
+const path = require('path');
+=======
+>>>>>>> 7e7799a (v1 no local files)
+>>>>>>> 8fa9a5e (merge)
 const jsonld = require('jsonld');
 const { expandRecursive, compactJsonLd } = require('./lib/ldr-core');
 
@@ -76,6 +82,9 @@ function applySingleMapping(url) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 8fa9a5e (merge)
 // Custom document loader - treats local files as file:// URLs
 async function documentLoader(url) {
   // Apply chained mappings first
@@ -109,6 +118,7 @@ async function documentLoader(url) {
   // Handle http/https URLs
   return new Promise((resolve, reject) => {
 =======
+<<<<<<< HEAD
 =======
 // Check if a string is a local file path
 function isLocalPath(str) {
@@ -213,6 +223,18 @@ async function documentLoader(url) {
   // Handle http/https URLs
   return new Promise((resolve, reject) => {
 <<<<<<< HEAD
+=======
+// Custom document loader with mappings support
+async function documentLoader(url) {
+  // Apply chained mappings
+  const resolvedUrl = applyMappings(url);
+  
+  if (resolvedUrl !== url) {
+    console.log(`Mapping chain: ${url} -> ${resolvedUrl}`);
+  }
+  
+  return new Promise((resolve, reject) => {
+>>>>>>> 8fa9a5e (merge)
     // Handle file:// URLs
     if (resolvedUrl.startsWith('file://') || resolvedUrl.startsWith('/')) {
       const filePath = resolvedUrl.replace('file://', '');
@@ -231,8 +253,11 @@ async function documentLoader(url) {
     
     // Handle http/https URLs
 >>>>>>> 7e7799a (v1 no local files)
+<<<<<<< HEAD
 =======
 >>>>>>> 222e705 (failed to local)
+=======
+>>>>>>> 8fa9a5e (merge)
     const client = resolvedUrl.startsWith('https:') ? https : http;
     
     client.get(resolvedUrl, { headers: { 'Accept': 'application/ld+json, application/json' } }, (res) => {
@@ -240,8 +265,11 @@ async function documentLoader(url) {
       
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 9ec64c7 (intial setup)
+=======
+>>>>>>> 8fa9a5e (merge)
       // Handle redirects
       if (res.statusCode === 301 || res.statusCode === 302) {
         return documentLoader(res.headers.location).then(resolve).catch(reject);
@@ -269,6 +297,7 @@ async function documentLoader(url) {
         try {
           const document = JSON.parse(data);
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 7e7799a (v1 no local files)
 =======
 =======
@@ -284,6 +313,9 @@ async function documentLoader(url) {
           }
           
 >>>>>>> 222e705 (failed to local)
+=======
+>>>>>>> 7e7799a (v1 no local files)
+>>>>>>> 8fa9a5e (merge)
           resolve({
             contextUrl: null,
             document: document,
@@ -509,6 +541,9 @@ server.listen(PORT, () => {
   console.log('');
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 8fa9a5e (merge)
   console.log('Features:');
   console.log('  ✓ HTTP/HTTPS URLs');
   console.log('  ✓ Local file paths (absolute and relative)');
@@ -517,6 +552,7 @@ server.listen(PORT, () => {
   console.log('');
 =======
 >>>>>>> 7e7799a (v1 no local files)
+<<<<<<< HEAD
 =======
   console.log('Features:');
   console.log('  ✓ HTTP/HTTPS URLs');
@@ -525,6 +561,8 @@ server.listen(PORT, () => {
   console.log('  ✓ Chained URL mappings');
   console.log('');
 >>>>>>> 222e705 (failed to local)
+=======
+>>>>>>> 8fa9a5e (merge)
   
   // Load mappings from file if specified
   if (MAPPINGS_FILE) {
@@ -543,13 +581,19 @@ server.listen(PORT, () => {
   
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 8fa9a5e (merge)
   console.log(`Cache: ${cache.size} entries`);
 =======
   console.log(`\nCache: ${cache.size} entries`);
 >>>>>>> 7e7799a (v1 no local files)
+<<<<<<< HEAD
 =======
   console.log(`Cache: ${cache.size} entries`);
 >>>>>>> 222e705 (failed to local)
+=======
+>>>>>>> 8fa9a5e (merge)
   console.log(`Mappings: ${Object.keys(urlMappings).length} rules`);
 });
 
