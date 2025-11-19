@@ -23,6 +23,7 @@ class LdrClient:
     def __init__(
         self, 
         base_url: str = "http://localhost:3000",
+        port: Optional[int] = None,
         timeout: int = 30,
         max_retries: int = 3,
         auto_start_server: bool = False,
@@ -33,13 +34,28 @@ class LdrClient:
         Initialize the client.
         
         Args:
-            base_url: Base URL of the LDR server
+            base_url: Base URL of the LDR server (default: http://localhost:3000)
+            port: Server port (overrides port in base_url if provided)
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for failed requests
             auto_start_server: Automatically start server if not running
             mappings_file: Path to JSON file with URL mappings
             mappings: Dictionary of URL mappings to set on initialization
         """
+        # If port is specified, override the port in base_url
+        if port is not None:
+            # Parse base_url and replace port
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(base_url)
+            # Reconstruct with new port
+            base_url = f"{parsed.scheme}://{parsed.hostname}:{port}{parsed.path}"
+            self.port = port
+        else:
+            # Extract port from base_url
+            from urllib.parse import urlparse
+            parsed = urlparse(base_url)
+            self.port = parsed.port or 3000
+        
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
         self.auto_started = False
@@ -71,7 +87,7 @@ class LdrClient:
             
             # Set mappings after server starts
             if self.initial_mappings:
-                time.sleep(0.5)  # Give server a moment to fully start
+                time.sleep(0.5)
                 self.set_mappings(self.initial_mappings)
     
     def _is_server_running(self) -> bool:
@@ -82,14 +98,14 @@ class LdrClient:
         except:
             return False
     
-    def _start_server(self, port: int = 3000):
+    def _start_server(self):
         """Start the server in background."""
         # Check if ldr command is available globally
         if shutil.which('ldr'):
-            print(f"Starting LDR server on port {port} (using global ldr command)...", flush=True)
+            print(f"Starting LDR server on port {self.port}...", flush=True)
             
             # Build command
-            cmd = ['ldr', 'server', 'start', str(port)]
+            cmd = ['ldr', 'server', 'start', str(self.port)]
             
             # Add mappings file if provided
             if self.mappings_file:
@@ -105,80 +121,16 @@ class LdrClient:
             for i in range(20):
                 time.sleep(0.5)
                 if self._is_server_running():
-                    print(f"Server started on port {port}", flush=True)
+                    print(f"Server started on port {self.port}", flush=True)
                     self.auto_started = True
                     return
             
             raise RuntimeError("Server failed to start within 10 seconds")
         
-        # Fallback: look for ldr-server.js script
-        server_script = self._find_server_script()
-        
-        if not server_script:
-            raise RuntimeError(
-                "Could not find ldr command or ldr-server.js. "
-                "Install with: npm install -g jsonld-recursive"
-            )
-        
-        print(f"Starting LDR server on port {port}...", flush=True)
-        
-        env = os.environ.copy()
-        env['PORT'] = str(port)
-        
-        if self.mappings_file:
-            env['MAPPINGS_FILE'] = self.mappings_file
-        
-        self.server_process = subprocess.Popen(
-            ['node', server_script],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=env,
-            start_new_session=True
+        raise RuntimeError(
+            "Could not find ldr command. "
+            "Install with: npm install -g jsonld-recursive"
         )
-        
-        self.server_pid = self.server_process.pid
-        self.auto_started = True
-        
-        # Wait for server to start
-        for i in range(20):
-            time.sleep(0.5)
-            if self._is_server_running():
-                print(f"Server started (PID: {self.server_pid})", flush=True)
-                return
-        
-        raise RuntimeError("Server failed to start within 10 seconds")
-    
-    def _find_server_script(self) -> Optional[str]:
-        """Find ldr-server.js script (fallback if ldr command not available)."""
-        # Current directory
-        if os.path.exists('ldr-server.js'):
-            return os.path.abspath('ldr-server.js')
-        
-        # Parent directory
-        if os.path.exists('../ldr-server.js'):
-            return os.path.abspath('../ldr-server.js')
-        
-        # Installed package directory (same directory as this Python file)
-        package_dir = Path(__file__).parent.parent
-        server_script = package_dir / 'ldr-server.js'
-        if server_script.exists():
-            return str(server_script.absolute())
-        
-        # Try one level up from package (for editable installs)
-        server_script = package_dir.parent / 'ldr-server.js'
-        if server_script.exists():
-            return str(server_script.absolute())
-        
-        # node_modules
-        paths = [
-            'node_modules/jsonld-recursive/ldr-server.js',
-            '../node_modules/jsonld-recursive/ldr-server.js'
-        ]
-        for p in paths:
-            if os.path.exists(p):
-                return os.path.abspath(p)
-        
-        return None
     
     def stop_server(self):
         """Stop auto-started server."""
@@ -186,7 +138,6 @@ class LdrClient:
             return
         
         try:
-            # Use ldr command if available
             if shutil.which('ldr'):
                 subprocess.run(['ldr', 'server', 'stop'], timeout=2, capture_output=True)
             else:
@@ -197,17 +148,7 @@ class LdrClient:
             print(f"Failed to stop server: {e}", flush=True)
     
     def set_mappings(self, mappings: Dict[str, str]) -> Dict[str, Any]:
-        """
-        Set URL mappings.
-        
-        Args:
-            mappings: Dictionary of URL mappings {original: replacement}
-            
-        Example:
-            >>> client.set_mappings({
-            ...     "https://old.com/data": "https://new.com/data"
-            ... })
-        """
+        """Set URL mappings."""
         response = self.session.post(
             f"{self.base_url}/mappings",
             json={"mappings": mappings},
@@ -217,15 +158,7 @@ class LdrClient:
         return response.json()
     
     def load_mappings(self, file_path: str) -> Dict[str, Any]:
-        """
-        Load URL mappings from file.
-        
-        Args:
-            file_path: Path to JSON file with mappings
-            
-        Example:
-            >>> client.load_mappings("mappings.json")
-        """
+        """Load URL mappings from file."""
         response = self.session.post(
             f"{self.base_url}/mappings",
             json={"file": file_path},
@@ -261,12 +194,7 @@ class LdrClient:
         response.raise_for_status()
         return response.json()
     
-    def expand(
-        self, 
-        url: str, 
-        depth: int = 2,
-        verbose: bool = True
-    ) -> Dict[str, Any]:
+    def expand(self, url: str, depth: int = 2, verbose: bool = True) -> Dict[str, Any]:
         """Expand a JSON-LD document recursively."""
         response = self.session.post(
             f"{self.base_url}/expand",
@@ -284,12 +212,7 @@ class LdrClient:
             
         return data['result']
     
-    def compact(
-        self, 
-        url: str, 
-        depth: int = 2,
-        verbose: bool = True
-    ) -> Dict[str, Any]:
+    def compact(self, url: str, depth: int = 2, verbose: bool = True) -> Dict[str, Any]:
         """Expand and compact a JSON-LD document recursively."""
         response = self.session.post(
             f"{self.base_url}/compact",
@@ -307,12 +230,7 @@ class LdrClient:
             
         return data['result']
     
-    def compact_batch(
-        self,
-        urls: List[str],
-        depth: int = 2,
-        verbose: bool = True
-    ) -> List[Dict[str, Any]]:
+    def compact_batch(self, urls: List[str], depth: int = 2, verbose: bool = True) -> List[Dict[str, Any]]:
         """Compact multiple URLs."""
         results = []
         for i, url in enumerate(urls):
