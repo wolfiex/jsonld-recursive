@@ -1,0 +1,15 @@
+{
+  "@context": {
+    "@vocab": "http://example.org/vocab#",
+    "name": "http://schema.org/name",
+    "description": "http://schema.org/description",
+    "url": {
+      "@id": "http://schema.org/url",
+      "@type": "@id"
+    },
+    "related": {
+      "@id": "http://example.org/vocab#related",
+      "@type": "@id"
+    }
+  }
+}

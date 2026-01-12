@@ -56,6 +56,9 @@ dev = [
     "mypy>=0.990"
 ]
 
+[project.scripts]
+jsonld-recursive-test = "jsonld_recursive.test_install:main"
+
 [project.urls]
 Homepage = "https://github.com/wolfiex/jsonld-recursive"
 Documentation = "https://github.com/wolfiex/jsonld-recursive#readme"
@@ -69,7 +72,7 @@ packages = ["jsonld_recursive"]
 jsonld_recursive = "lib"
 
 [tool.setuptools.package-data]
-jsonld_recursive = ["*.py"]
+jsonld_recursive = ["*.py", "*.js", "testdata/*.jsonld"]
 
 [tool.black]
 line-length = 100

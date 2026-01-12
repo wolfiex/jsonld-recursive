@@ -20,9 +20,12 @@ class LdrClient:
     Supports auto-starting server and connection pooling.
     """
     
+    DEFAULT_PORT = 3333
+    MAX_PORT_ATTEMPTS = 10
+    
     def __init__(
         self, 
-        base_url: str = "http://localhost:3000",
+        base_url: str = None,
         timeout: int = 30,
         max_retries: int = 3,
         auto_start_server: bool = False,
@@ -33,19 +36,21 @@ class LdrClient:
         Initialize the client.
         
         Args:
-            base_url: Base URL of the LDR server
+            base_url: Base URL of the LDR server (default: http://localhost:3333)
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for failed requests
             auto_start_server: Automatically start server if not running
             mappings_file: Path to JSON file with URL mappings
             mappings: Dictionary of URL mappings to set on initialization
         """
-        self.base_url = base_url.rstrip('/')
+        self.base_url = (base_url or f"http://localhost:{self.DEFAULT_PORT}").rstrip('/')
         self.timeout = timeout
         self.auto_started = False
         self.server_pid = None
+        self.server_process = None
         self.mappings_file = mappings_file
         self.initial_mappings = mappings
+        self.port = self._extract_port(self.base_url)
         
         # Create session with connection pooling
         self.session = requests.Session()
@@ -74,82 +79,215 @@ class LdrClient:
                 time.sleep(0.5)  # Give server a moment to fully start
                 self.set_mappings(self.initial_mappings)
     
-    def _is_server_running(self) -> bool:
-        """Check if server is running."""
+    def _is_server_running(self, port: int = None) -> bool:
+        """Check if server is running on specified port."""
+        if port is None:
+            port = self.port
         try:
-            response = self.session.get(f"{self.base_url}/health", timeout=2)
+            response = self.session.get(f"http://localhost:{port}/health", timeout=2)
             return response.status_code == 200
         except:
             return False
     
-    def _start_server(self, port: int = 3000):
-        """Start the server in background."""
-        # Check if ldr command is available globally
-        if shutil.which('ldr'):
-            print(f"Starting LDR server on port {port} (using global ldr command)...", flush=True)
+    def _extract_port(self, url: str) -> int:
+        """Extract port number from URL."""
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            return parsed.port or self.DEFAULT_PORT
+        except:
+            return self.DEFAULT_PORT
+    
+    def _is_port_in_use(self, port: int) -> bool:
+        """Check if a port is in use."""
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(('localhost', port)) == 0
+    
+    def _find_available_port(self, start_port: int = None) -> int:
+        """Find an available port starting from start_port."""
+        if start_port is None:
+            start_port = self.DEFAULT_PORT
+        
+        for i in range(self.MAX_PORT_ATTEMPTS):
+            port = start_port + i
+            if not self._is_port_in_use(port):
+                return port
+        
+        raise RuntimeError(f"Could not find available port in range {start_port}-{start_port + self.MAX_PORT_ATTEMPTS}")
+    
+    def _ensure_jsonld_installed(self, server_script_dir: str) -> bool:
+        """Ensure jsonld npm package is installed. Returns True if available."""
+        # Check if jsonld is available globally or locally
+        check_script = '''
+        try {
+          require('jsonld');
+          process.exit(0);
+        } catch(e) {
+          process.exit(1);
+        }
+        '''
+        result = subprocess.run(
+            ['node', '-e', check_script],
+            capture_output=True,
+            cwd=server_script_dir
+        )
+        
+        if result.returncode == 0:
+            return True
+        
+        # Try to install jsonld in the server script directory
+        print("Installing jsonld npm package...", flush=True)
+        
+        # Check if package.json exists, if not create a minimal one
+        package_json = Path(server_script_dir) / 'package.json'
+        if not package_json.exists():
+            with open(package_json, 'w') as f:
+                f.write('{"name":"ldr-server-deps","dependencies":{"jsonld":"^8.3.1"}}')
+        
+        # Run npm install
+        result = subprocess.run(
+            ['npm', 'install', '--silent'],
+            capture_output=True,
+            text=True,
+            cwd=server_script_dir
+        )
+        
+        if result.returncode != 0:
+            print(f"Warning: Failed to install jsonld: {result.stderr}", flush=True)
+            print("Please install manually: npm install -g jsonld", flush=True)
+            return False
+        
+        print("jsonld installed successfully", flush=True)
+        return True
+    
+    def _start_server(self, port: int = None):
+        """Start the server in background, finding an available port if needed."""
+        # First check if server is already running on default port
+        if self._is_server_running(self.DEFAULT_PORT):
+            self.port = self.DEFAULT_PORT
+            self.base_url = f"http://localhost:{self.port}"
+            print(f"Using existing server on port {self.port}", flush=True)
+            return
+        
+        # Find an available port
+        if port is None:
+            port = self._find_available_port(self.DEFAULT_PORT)
+        
+        self.port = port
+        self.base_url = f"http://localhost:{self.port}"
+        
+        # Find the server script first (preferred method - more reliable)
+        server_script = self._find_server_script()
+        
+        if server_script:
+            server_script_dir = str(Path(server_script).parent)
             
-            # Build command
-            cmd = ['ldr', 'server', 'start', str(port)]
+            # Check if Node.js is available
+            if not shutil.which('node'):
+                raise RuntimeError(
+                    "Node.js is required to run the server. "
+                    "Install Node.js from https://nodejs.org/"
+                )
             
-            # Add mappings file if provided
+            # Ensure jsonld is installed
+            self._ensure_jsonld_installed(server_script_dir)
+            
+            print(f"Starting LDR server on port {port}...", flush=True)
+            
+            env = os.environ.copy()
+            env['PORT'] = str(port)
+            
             if self.mappings_file:
-                cmd.append(self.mappings_file)
+                env['MAPPINGS_FILE'] = self.mappings_file
             
-            # Start server using global ldr command
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # Set NODE_PATH to help find jsonld module
+            node_paths = [
+                os.path.join(server_script_dir, 'node_modules'),  # Local to script
+                '/usr/local/lib/node_modules',
+                '/usr/lib/node_modules',
+                os.path.expanduser('~/.npm-global/lib/node_modules'),
+                os.path.expanduser('~/node_modules'),
+                './node_modules',
+            ]
+            existing_node_path = env.get('NODE_PATH', '')
+            if existing_node_path:
+                node_paths.insert(0, existing_node_path)
+            env['NODE_PATH'] = os.pathsep.join(node_paths)
             
-            if result.returncode != 0:
-                raise RuntimeError(f"Failed to start server: {result.stderr}")
+            # Start server in background with Popen
+            self.server_process = subprocess.Popen(
+                ['node', server_script],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+                start_new_session=True
+            )
             
-            # Wait for server to start
+            self.server_pid = self.server_process.pid
+            self.auto_started = True
+            
+            # Wait for server to start, checking for early failure
             for i in range(20):
                 time.sleep(0.5)
+                
+                # Check if process died
+                if self.server_process.poll() is not None:
+                    stdout, stderr = self.server_process.communicate()
+                    error_msg = stderr.decode() if stderr else stdout.decode()
+                    if 'jsonld' in error_msg.lower():
+                        raise RuntimeError(
+                            f"Server failed - jsonld npm package not found.\n"
+                            f"Install it with: npm install -g jsonld\n"
+                            f"Error: {error_msg}"
+                        )
+                    raise RuntimeError(f"Server process died: {error_msg}")
+                
                 if self._is_server_running():
-                    print(f"Server started on port {port}", flush=True)
-                    self.auto_started = True
+                    print(f"Server started (PID: {self.server_pid})", flush=True)
                     return
             
             raise RuntimeError("Server failed to start within 10 seconds")
         
-        # Fallback: look for ldr-server.js script
-        server_script = self._find_server_script()
-        
-        if not server_script:
-            raise RuntimeError(
-                "Could not find ldr command or ldr-server.js. "
-                "Install with: npm install -g jsonld-recursive"
+        # Fallback: try global ldr command
+        if shutil.which('ldr'):
+            print(f"Starting LDR server on port {port} (using global ldr command)...", flush=True)
+            
+            # Use Popen instead of run to avoid blocking
+            cmd = ['ldr', 'server', 'start', str(port)]
+            if self.mappings_file:
+                cmd.append(self.mappings_file)
+            
+            self.server_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
             )
+            
+            self.auto_started = True
+            
+            for i in range(20):
+                time.sleep(0.5)
+                if self._is_server_running():
+                    print(f"Server started on port {port}", flush=True)
+                    return
+            
+            raise RuntimeError("Server failed to start within 10 seconds")
         
-        print(f"Starting LDR server on port {port}...", flush=True)
-        
-        env = os.environ.copy()
-        env['PORT'] = str(port)
-        
-        if self.mappings_file:
-            env['MAPPINGS_FILE'] = self.mappings_file
-        
-        self.server_process = subprocess.Popen(
-            ['node', server_script],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=env,
-            start_new_session=True
+        raise RuntimeError(
+            "Could not find ldr-server.js or ldr command. "
+            "Install with: npm install -g jsonld-recursive"
         )
-        
-        self.server_pid = self.server_process.pid
-        self.auto_started = True
-        
-        # Wait for server to start
-        for i in range(20):
-            time.sleep(0.5)
-            if self._is_server_running():
-                print(f"Server started (PID: {self.server_pid})", flush=True)
-                return
-        
-        raise RuntimeError("Server failed to start within 10 seconds")
     
     def _find_server_script(self) -> Optional[str]:
-        """Find ldr-server.js script (fallback if ldr command not available)."""
+        """Find ldr-server.js script."""
+        # First check: same directory as this Python file (installed package)
+        package_dir = Path(__file__).parent
+        server_script = package_dir / 'ldr-server.js'
+        if server_script.exists():
+            return str(server_script.absolute())
+        
         # Current directory
         if os.path.exists('ldr-server.js'):
             return os.path.abspath('ldr-server.js')
@@ -158,13 +296,7 @@ class LdrClient:
         if os.path.exists('../ldr-server.js'):
             return os.path.abspath('../ldr-server.js')
         
-        # Installed package directory (same directory as this Python file)
-        package_dir = Path(__file__).parent.parent
-        server_script = package_dir / 'ldr-server.js'
-        if server_script.exists():
-            return str(server_script.absolute())
-        
-        # Try one level up from package (for editable installs)
+        # Parent of package directory (for editable installs)
         server_script = package_dir.parent / 'ldr-server.js'
         if server_script.exists():
             return str(server_script.absolute())

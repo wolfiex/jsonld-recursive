@@ -1,0 +1,8 @@
+{
+  "@context": "./context.jsonld",
+  "@id": "http://example.org/test/item1",
+  "@type": "TestItem",
+  "name": "Test Item One",
+  "description": "This is a test item for verifying jsonld-recursive installation",
+  "related": "./linked.jsonld"
+}
