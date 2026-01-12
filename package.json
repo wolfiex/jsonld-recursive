@@ -47,10 +47,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/jsonld-recursive.git"
+    "url": "https://github.com/wolfiex/jsonld-recursive.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/jsonld-recursive/issues"
+    "url": "https://github.com/wolfiex/jsonld-recursive/issues"
   },
-  "homepage": "https://github.com/yourusername/jsonld-recursive#readme"
+  "homepage": "https://github.com/wolfiex/jsonld-recursive#readme"
 }
