@@ -400,21 +400,26 @@ class LdrClient:
         verbose: bool = True
     ) -> Dict[str, Any]:
         """Expand a JSON-LD document recursively."""
-        response = self.session.post(
-            f"{self.base_url}/expand",
-            json={"url": url, "depth": depth},
-            timeout=self.timeout
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        if verbose:
-            if data.get('cached'):
-                print(f"[Cache HIT] {url} (depth={depth})", flush=True)
-            else:
-                print(f"[Cache MISS] {url} (depth={depth})", flush=True)
+        try:
+            response = self.session.post(
+                f"{self.base_url}/expand",
+                json={"url": url, "depth": depth},
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
             
-        return data['result']
+            if verbose:
+                if data.get('cached'):
+                    print(f"[Cache HIT] {url} (depth={depth})", flush=True)
+                else:
+                    print(f"[Cache MISS] {url} (depth={depth})", flush=True)
+                
+            return data['result']
+        except Exception as e:
+            # On failure, check if URL exists and provide helpful debug
+            self._diagnose_failure(url, "expand", e)
+            raise
     
     def compact(
         self, 
@@ -423,21 +428,82 @@ class LdrClient:
         verbose: bool = True
     ) -> Dict[str, Any]:
         """Expand and compact a JSON-LD document recursively."""
-        response = self.session.post(
-            f"{self.base_url}/compact",
-            json={"url": url, "depth": depth},
-            timeout=self.timeout
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        if verbose:
-            if data.get('cached'):
-                print(f"[Cache HIT] {url} (depth={depth})", flush=True)
-            else:
-                print(f"[Cache MISS] {url} (depth={depth})", flush=True)
+        try:
+            response = self.session.post(
+                f"{self.base_url}/compact",
+                json={"url": url, "depth": depth},
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
             
-        return data['result']
+            if verbose:
+                if data.get('cached'):
+                    print(f"[Cache HIT] {url} (depth={depth})", flush=True)
+                else:
+                    print(f"[Cache MISS] {url} (depth={depth})", flush=True)
+                
+            return data['result']
+        except Exception as e:
+            # On failure, check if URL exists and provide helpful debug
+            self._diagnose_failure(url, "compact", e)
+            raise
+    
+    def _diagnose_failure(self, url: str, operation: str, error: Exception) -> None:
+        """Diagnose why an operation failed."""
+        print(f"\n{'!'*60}", flush=True)
+        print(f"FAILED: {operation} on {url}", flush=True)
+        print(f"Error: {error}", flush=True)
+        print(f"{'!'*60}", flush=True)
+        
+        try:
+            # Check URL resolution
+            resolve_result = self.resolve(url)
+            print(f"\nURL Resolution:", flush=True)
+            print(f"  Original:  {resolve_result.get('original')}", flush=True)
+            print(f"  Resolved:  {resolve_result.get('resolved')}", flush=True)
+            print(f"  Is Local:  {resolve_result.get('isLocal')}", flush=True)
+            print(f"  Exists:    {resolve_result.get('exists')}", flush=True)
+            
+            if not resolve_result.get('exists'):
+                if resolve_result.get('isLocal'):
+                    print(f"\n  ❌ LOCAL FILE NOT FOUND: {resolve_result.get('resolved')}", flush=True)
+                else:
+                    hs = resolve_result.get('httpStatus', {})
+                    print(f"\n  ❌ URL NOT ACCESSIBLE: HTTP {hs.get('status')} {hs.get('statusMessage')}", flush=True)
+            
+            if resolve_result.get('error'):
+                print(f"  Resolution Error: {resolve_result.get('error')}", flush=True)
+            
+            # Try to load the document
+            print(f"\nDocument Loading:", flush=True)
+            load_result = self.test_load(url)
+            print(f"  Success:   {load_result.get('success')}", flush=True)
+            if load_result.get('success'):
+                print(f"  Has @ctx:  {load_result.get('hasContext')}", flush=True)
+                print(f"  Keys:      {load_result.get('keys')}", flush=True)
+            else:
+                print(f"  Load Error: {load_result.get('error')}", flush=True)
+            
+            # If file exists but processing fails, try a single request without retry to get actual error
+            if resolve_result.get('exists'):
+                print(f"\nServer Error Details:", flush=True)
+                try:
+                    # Make request without retries to see actual error
+                    single_response = requests.post(
+                        f"{self.base_url}/{operation}",
+                        json={"url": url, "depth": 1},
+                        timeout=30
+                    )
+                    print(f"  Status: {single_response.status_code}", flush=True)
+                    print(f"  Response: {single_response.text[:1000]}", flush=True)
+                except Exception as req_err:
+                    print(f"  Request Error: {req_err}", flush=True)
+                
+        except Exception as diag_error:
+            print(f"\nCould not diagnose: {diag_error}", flush=True)
+        
+        print(f"{'!'*60}\n", flush=True)
     
     def compact_batch(
         self,
@@ -483,6 +549,99 @@ class LdrClient:
         cleared = data['cleared']
         print(f"Cache cleared: {cleared} entries removed", flush=True)
         return cleared
+    
+    def resolve(self, url: str) -> Dict[str, Any]:
+        """
+        Test how a URL gets resolved/mapped by the server.
+        
+        Returns info about:
+        - original: The original URL
+        - resolved: The URL after mapping
+        - changed: Whether mapping changed the URL  
+        - isLocal: Whether resolved URL is a local file
+        - exists: Whether the file/URL exists
+        - fileInfo: For local files, size and path info
+        - httpStatus: For HTTP URLs, status code
+        - error: Any error message
+        """
+        response = self.session.post(
+            f"{self.base_url}/resolve",
+            json={"url": url},
+            timeout=self.timeout
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def test_load(self, url: str) -> Dict[str, Any]:
+        """
+        Test loading a document without processing it.
+        
+        Returns:
+        - success: Whether loading succeeded
+        - documentUrl: The final URL used
+        - hasContext: Whether document has @context
+        - keys: Top-level keys in the document
+        - preview: First 500 chars of the document
+        - error: Error message if failed
+        """
+        response = self.session.post(
+            f"{self.base_url}/test-load",
+            json={"url": url},
+            timeout=self.timeout
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def check_url_exists(self, url: str) -> bool:
+        """
+        Check if a URL exists (either local file or HTTP).
+        """
+        result = self.resolve(url)
+        return result.get('exists', False)
+    
+    def debug_url(self, url: str) -> None:
+        """
+        Print detailed debug info about a URL's resolution and loading.
+        """
+        print(f"\n{'='*60}")
+        print(f"DEBUG: {url}")
+        print('='*60)
+        
+        # Test resolution
+        print("\n1. URL Resolution:")
+        resolve_result = self.resolve(url)
+        print(f"   Original:  {resolve_result.get('original')}")
+        print(f"   Resolved:  {resolve_result.get('resolved')}")
+        print(f"   Changed:   {resolve_result.get('changed')}")
+        print(f"   Is Local:  {resolve_result.get('isLocal')}")
+        print(f"   Exists:    {resolve_result.get('exists')}")
+        
+        if resolve_result.get('fileInfo'):
+            fi = resolve_result['fileInfo']
+            print(f"   File Path: {fi.get('path')}")
+            print(f"   File Size: {fi.get('size')} bytes")
+        
+        if resolve_result.get('httpStatus'):
+            hs = resolve_result['httpStatus']
+            print(f"   HTTP:      {hs.get('status')} {hs.get('statusMessage')}")
+        
+        if resolve_result.get('error'):
+            print(f"   Error:     {resolve_result.get('error')}")
+        
+        # Test loading
+        print("\n2. Document Loading:")
+        load_result = self.test_load(url)
+        print(f"   Success:   {load_result.get('success')}")
+        
+        if load_result.get('success'):
+            print(f"   Doc URL:   {load_result.get('documentUrl')}")
+            print(f"   Has @ctx:  {load_result.get('hasContext')}")
+            print(f"   Keys:      {load_result.get('keys')}")
+            print(f"   Preview:   {load_result.get('preview', '')[:200]}...")
+        else:
+            print(f"   Error:     {load_result.get('error')}")
+        
+        print('='*60 + "\n")
     
     def close(self):
         """Close the session."""
