@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { expandRecursive, compactJsonLd } = require('./lib/ldr-core');
+const { DEFAULT_PORT } = require('./lib/config');
 
 const PID_FILE = path.join(__dirname, '.ldr-server.pid');
 
@@ -96,7 +97,7 @@ function isServerRunning() {
   }
 }
 
-async function startServer(port = 3000, mappingsFile = null) {
+async function startServer(port = DEFAULT_PORT, mappingsFile = null) {
   const serverPath = path.join(__dirname, 'ldr-server.js');
   const env = { ...process.env, PORT: port.toString() };
   
@@ -124,9 +125,9 @@ async function startServer(port = 3000, mappingsFile = null) {
   throw new Error('Server failed to start');
 }
 
-async function checkServer() {
+async function checkServer(port = DEFAULT_PORT) {
   return new Promise((resolve) => {
-    const req = http.get('http://localhost:3000/health', (res) => {
+    const req = http.get(`http://localhost:${port}/health`, (res) => {
       resolve(res.statusCode === 200);
     });
     req.on('error', () => resolve(false));
@@ -134,12 +135,12 @@ async function checkServer() {
   });
 }
 
-async function useServer(url, depth, operation) {
+async function useServer(url, depth, operation, port = DEFAULT_PORT) {
   const response = await new Promise((resolve, reject) => {
     const data = JSON.stringify({ url, depth });
     const options = {
       hostname: 'localhost',
-      port: 3000,
+      port: port,
       path: `/${operation}`,
       method: 'POST',
       headers: {
@@ -162,12 +163,12 @@ async function useServer(url, depth, operation) {
   return response.result;
 }
 
-async function apiRequest(method, endpoint, body = null) {
+async function apiRequest(method, endpoint, body = null, port = DEFAULT_PORT) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : '';
     const options = {
       hostname: 'localhost',
-      port: 3000,
+      port: port,
       path: endpoint,
       method: method,
       headers: body ? {
@@ -203,7 +204,7 @@ function parseArgs(args) {
     useServer: false,
     mappingsFile: null,
     mappingsJson: null,
-    port: 3000
+    port: DEFAULT_PORT
   };
   
   for (let i = 0; i < args.length; i++) {
@@ -282,7 +283,7 @@ async function main() {
     console.error('  ldr [expand|compact] <url> [-d depth] [--server]');
     console.error('');
     console.error('Examples:');
-    console.error('  ldr server start 3000 mappings.json');
+    console.error(`  ldr server start ${DEFAULT_PORT} mappings.json`);
     console.error('  ldr server start 8080');
     console.error('  ldr mappings set mappings.json');
     console.error('  ldr mappings set \'{"old:*":"https://new/${rest}"}\'');

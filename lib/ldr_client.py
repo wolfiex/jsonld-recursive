@@ -12,6 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+from .config import DEFAULT_PORT
+
 
 class LdrClient:
     """
@@ -20,7 +22,6 @@ class LdrClient:
     Supports auto-starting server and connection pooling.
     """
     
-    DEFAULT_PORT = 3333
     MAX_PORT_ATTEMPTS = 10
     
     def __init__(
@@ -43,7 +44,7 @@ class LdrClient:
             mappings_file: Path to JSON file with URL mappings
             mappings: Dictionary of URL mappings to set on initialization
         """
-        self.base_url = (base_url or f"http://localhost:{self.DEFAULT_PORT}").rstrip('/')
+        self.base_url = (base_url or f"http://localhost:{DEFAULT_PORT}").rstrip('/')
         self.timeout = timeout
         self.auto_started = False
         self.server_pid = None
@@ -94,9 +95,9 @@ class LdrClient:
         try:
             from urllib.parse import urlparse
             parsed = urlparse(url)
-            return parsed.port or self.DEFAULT_PORT
+            return parsed.port or DEFAULT_PORT
         except:
-            return self.DEFAULT_PORT
+            return DEFAULT_PORT
     
     def _is_port_in_use(self, port: int) -> bool:
         """Check if a port is in use."""
@@ -107,7 +108,7 @@ class LdrClient:
     def _find_available_port(self, start_port: int = None) -> int:
         """Find an available port starting from start_port."""
         if start_port is None:
-            start_port = self.DEFAULT_PORT
+            start_port = DEFAULT_PORT
         
         for i in range(self.MAX_PORT_ATTEMPTS):
             port = start_port + i
@@ -164,15 +165,15 @@ class LdrClient:
     def _start_server(self, port: int = None):
         """Start the server in background, finding an available port if needed."""
         # First check if server is already running on default port
-        if self._is_server_running(self.DEFAULT_PORT):
-            self.port = self.DEFAULT_PORT
+        if self._is_server_running(DEFAULT_PORT):
+            self.port = DEFAULT_PORT
             self.base_url = f"http://localhost:{self.port}"
             print(f"Using existing server on port {self.port}", flush=True)
             return
         
         # Find an available port
         if port is None:
-            port = self._find_available_port(self.DEFAULT_PORT)
+            port = self._find_available_port(DEFAULT_PORT)
         
         self.port = port
         self.base_url = f"http://localhost:{self.port}"

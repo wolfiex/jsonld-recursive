@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const jsonld = require('jsonld');
 const { expandRecursive, compactJsonLd } = require('./lib/ldr-core');
+const { DEFAULT_PORT } = require('./lib/config');
 
 // In-memory cache and mappings
 const cache = new Map();
@@ -326,7 +327,7 @@ async function handleRequest(req, res) {
   }
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || DEFAULT_PORT;
 const MAPPINGS_FILE = process.env.MAPPINGS_FILE;
 
 const server = http.createServer(handleRequest);
