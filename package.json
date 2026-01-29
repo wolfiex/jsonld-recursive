@@ -1,6 +1,6 @@
 {
   "name": "jsonld-recursive",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Recursively expand and compact JSON-LD documents with caching and chained URL mappings",
   "main": "lib/ldr-core.js",
   "browser": "lib/ldr-browser.js",
