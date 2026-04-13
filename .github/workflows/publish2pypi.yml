@@ -34,7 +34,7 @@ jobs:
       - name: Build a binary wheel and a source tarball
         run: |
           echo "${{ github.ref_name }}"
-          SETUPTOOLS_SCM_PRETEND_VERSION=${{ github.ref_name }} python -m build
+          python -m build
         env:
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ github.ref_name }}
 
