@@ -217,10 +217,13 @@ class LdrClient:
             env['NODE_PATH'] = os.pathsep.join(node_paths)
             
             # Start server in background with Popen
+            # Use DEVNULL (not PIPE) so the server is not tied to this process's
+            # pipe lifecycle — PIPE causes the node process to get SIGHUP/die
+            # when the parent Python process exits.
             self.server_process = subprocess.Popen(
                 ['node', server_script],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 env=env,
                 start_new_session=True
             )
@@ -228,22 +231,10 @@ class LdrClient:
             self.server_pid = self.server_process.pid
             self.auto_started = True
             
-            # Wait for server to start, checking for early failure
+            # Wait for server to start. Since we use DEVNULL for stdio,
+            # we can't read stderr — just poll the health endpoint.
             for i in range(20):
                 time.sleep(0.5)
-                
-                # Check if process died
-                if self.server_process.poll() is not None:
-                    stdout, stderr = self.server_process.communicate()
-                    error_msg = stderr.decode() if stderr else stdout.decode()
-                    if 'jsonld' in error_msg.lower():
-                        raise RuntimeError(
-                            f"Server failed - jsonld npm package not found.\n"
-                            f"Install it with: npm install -g jsonld\n"
-                            f"Error: {error_msg}"
-                        )
-                    raise RuntimeError(f"Server process died: {error_msg}")
-                
                 if self._is_server_running():
                     print(f"Server started (PID: {self.server_pid})", flush=True)
                     return
@@ -254,15 +245,12 @@ class LdrClient:
         if shutil.which('ldr'):
             print(f"Starting LDR server on port {port} (using global ldr command)...", flush=True)
             
-            # Use Popen instead of run to avoid blocking
-            cmd = ['ldr', 'server', 'start', str(port)]
-            if self.mappings_file:
-                cmd.append(self.mappings_file)
-            
+            # Use DEVNULL so the ldr CLI process (and the node server it spawns)
+            # are not tied to this Python process's pipe lifecycle.
             self.server_process = subprocess.Popen(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 start_new_session=True
             )
             
