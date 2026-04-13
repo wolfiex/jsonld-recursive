@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0", "setuptools_scm", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "jsonld-recursive"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Recursively expand and compact JSON-LD documents with caching and chained URL mappings"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -64,6 +64,9 @@ Homepage = "https://github.com/wolfiex/jsonld-recursive"
 Documentation = "https://github.com/wolfiex/jsonld-recursive#readme"
 Repository = "https://github.com/wolfiex/jsonld-recursive.git"
 Issues = "https://github.com/wolfiex/jsonld-recursive/issues"
+
+[tool.setuptools_scm]
+write_to = "lib/version.py"
 
 [tool.setuptools]
 packages = ["jsonld_recursive"]
